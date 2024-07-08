@@ -40,7 +40,7 @@ export class CreateProductInput {
   @Field()
   name: string;
 
-  @MinLength(50, {
+  @MinLength(10, {
     message: "Description must be at least 50 characters",
   })
   @MaxLength(1000, {

@@ -11,7 +11,6 @@ class ProductService {
   }
 
   async findProducts() {
-    // Pagination login
     return ProductModel.find().lean();
   }
 
@@ -20,4 +19,6 @@ class ProductService {
   }
 }
 
-export default ProductService;
+const productService = new ProductService();
+
+export default productService;

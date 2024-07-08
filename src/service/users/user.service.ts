@@ -1,25 +1,16 @@
 import { ApolloError } from "apollo-server-errors";
 import bcrypt from "bcrypt";
 import {
-  CreateUserInput,
+  RegisterUserInput,
   LoginInput,
   UserModel,
+  EmailVarificationInput,
 } from "../../schema/user.schema";
-import Context from "../../types/context";
+import Context from "../../type/context";
 import { generateToken } from "../../utils/jwt";
 
-const createUser = async (input: CreateUserInput) => {
-  const createdUser = await UserModel.create(input);
-  if (!createdUser) {
-    throw new ApolloError("Failed to create user");
-  }
-
-  return { ...createdUser.toJSON(), token: generateToken(createdUser._id) };
-};
-
 class UserService {
-  // <========= Create User =========>
-  async createUser(input: CreateUserInput) {
+  async createUser(input: RegisterUserInput) {
     const isExists = await UserModel.exists({
       email: input.email.toLowerCase(),
     });
@@ -28,36 +19,67 @@ class UserService {
       throw new ApolloError("User already exists", "EMAIL_EXISTS");
     }
 
-    const createdUser = await UserModel.create(input);
+    const createdUser = await UserModel.create({
+      ...input,
+      isVerified: false,
+      // verificationCode: Math.floor(100000 + Math.random() * 900000),
+    });
 
     if (!createdUser) {
       throw new ApolloError("Failed to create user");
     }
 
-    return { ...createdUser.toJSON(), token: generateToken(createdUser._id) };
+    return { ...createdUser.toJSON() };
   }
-
-  // <========= Login User =========>
   async login(input: LoginInput, context: Context) {
-    // Get our user by email
-    const user = await UserModel.findOne({ email: input.email }).lean();
+    const user = await UserModel.findOne({ email: input.email });
 
     if (!user) {
       throw new ApolloError("User not found", "USER_NOT_FOUND");
     }
 
-    // validate the password
+    if (!user.isVerified) {
+      throw new ApolloError("User not verified", "USER_NOT_VERIFIED");
+    }
+
     const passwordIsValid = await bcrypt.compare(input.password, user.password);
 
     if (!passwordIsValid) {
       throw new ApolloError("Invalid password", "INVALID_PASSWORD");
     }
 
-    // sign a jwt
-    const token = generateToken(user._id);
+    return { ...user.toJSON() };
+  }
 
-    // return the jwt
-    return { ...user, token };
+  async verification(input: EmailVarificationInput, context: Context) {
+    const { varification_code, email } = input;
+
+    try {
+      const user = await UserModel.findOne({
+        email: email,
+      });
+
+      if (!user) {
+        throw new ApolloError("User not found", "INVALID_USER");
+      }
+
+      if (user.verificationCode !== +varification_code) {
+        throw new ApolloError(
+          "Invalid verification code",
+          "INVALID_VARIFICATION_CODE"
+        );
+      }
+
+      user.isVerified = true;
+      const token = generateToken(user._id);
+
+      return { ...user.toJSON(), token };
+    } catch (error) {
+      throw new ApolloError(
+        "An error occurred during verification",
+        "VERIFICATION_ERROR"
+      );
+    }
   }
 }
 

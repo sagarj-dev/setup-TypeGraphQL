@@ -1,0 +1,129 @@
+import { getModelForClass, index, pre, prop, Ref } from "@typegoose/typegoose";
+import { Field, InputType, ObjectType } from "type-graphql";
+import { customAlphabet } from "nanoid";
+import bcrypt from "bcrypt";
+import { IsEmail, IsNumber, MaxLength, Min, MinLength } from "class-validator";
+
+const nanoid = customAlphabet("abcdefghijklmnopqrstuvwxyz123456789", 10);
+
+@pre<User>("save", async function () {
+  if (!this.isModified("password")) {
+    return;
+  }
+
+  const salt = await bcrypt.genSalt(10);
+  this.password = await bcrypt.hash(this.password, salt);
+})
+
+@ObjectType()
+export class User {
+  @Field(() => String, { name: "id" })
+  _id: string;
+
+  @Field(() => String)
+  @prop({ required: true })
+  name: string;
+
+  @Field(() => String)
+  @prop({ required: true })
+  email: string;
+
+  @Field(() => String)
+  @prop({ required: true })
+  password: string;
+
+  @Field(() => String)
+  @prop({ required: true })
+  role: string;
+
+  @Field()
+  token?: string;
+}
+
+export const UserModel = getModelForClass(User);
+
+@InputType()
+export class CreateUserInput {
+  @Field()
+  name: string;
+
+  @IsEmail()
+  @Field()
+  email: string;
+
+  @MinLength(6, {
+    message: "password must be at least 6 characters long",
+  })
+  @MaxLength(12, {
+    message: "password must not be longer than 50 characters",
+  })
+  @Field()
+  password: string;
+
+  @Field()
+  role: string;
+}
+
+@InputType()
+export class LoginInput {
+  @Field(() => String)
+  email: string;
+
+  @Field(() => String)
+  password: string;
+}
+
+@index({ productId: 1 })
+@ObjectType()
+export class Product {
+  @Field(() => String)
+  _id: string;
+
+  @Field(() => String)
+  @prop({ required: true, ref: () => User })
+  user: Ref<User>;
+
+  @Field(() => String)
+  @prop({ required: true })
+  name: string;
+
+  @Field(() => String)
+  @prop({ required: true })
+  description: string;
+
+  @Field(() => String)
+  @prop({ required: true })
+  price: string;
+
+  @Field(() => String)
+  @prop({ required: true, default: () => `product_${nanoid()}`, unique: true })
+  productId: string;
+}
+
+export const ProductModel = getModelForClass(Product);
+
+@InputType()
+export class CreateProductInput {
+  @Field()
+  name: string;
+
+  @MinLength(10, {
+    message: "Description must be at least 50 characters",
+  })
+  @MaxLength(1000, {
+    message: "Description must not be more than 1000 characters",
+  })
+  @Field()
+  description: string;
+
+  @IsNumber()
+  @Min(1)
+  @Field()
+  price: number;
+}
+
+@InputType()
+export class GetProductInput {
+  @Field()
+  productId: string;
+}

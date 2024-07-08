@@ -1,7 +1,7 @@
 import { ApolloError } from "apollo-server";
 import bcrypt from "bcrypt";
 import { LoginInput, UserModel } from "../../schema/user.schema";
-import Context from "../../types/context";
+import Context from "../../type/context";
 import { generateToken } from "../../utils/jwt";
 
 export const loginUser = async (input: LoginInput, context: Context) => {

@@ -1,35 +1,31 @@
-import { Arg, Authorized, Ctx, Mutation, Query, Resolver } from "type-graphql";
-import {
-  CreateProductInput,
-  GetProductInput,
-  Product,
-} from "../schema/product.schema";
-import ProductService from "../service/product.service";
-import Context from "../types/context";
+import { Authorized, Mutation, Resolver } from "type-graphql";
+import { Arg, Ctx } from "type-graphql";
+import { CreateProductInput, Product } from "../schema/product.schema";
+import productService from "../service/product.service";
+import Context from "../type/context";
+import { ROLES } from "../contatnts/ROLES";
 
 @Resolver()
 export default class ProductResolver {
-  constructor(private productService: ProductService) {
-    this.productService = new ProductService();
-  }
-
-  @Authorized()
+  @Authorized([ROLES.USER]) // we can  Allow both "user" and "admin" roles here
   @Mutation(() => Product)
-  createProduct(
+  async createProduct(
     @Arg("input") input: CreateProductInput,
-    @Ctx() context: Context
-  ) {
-    const user = context.user!;
-    return this.productService.createProduct({ ...input, user: user?._id });
-  }
+    @Ctx() { user }: Context
+  ): Promise<Product> {
+    if (!user) {
+      throw new Error("User not authenticated");
+    }
 
-  @Query(() => [Product])
-  products() {
-    return this.productService.findProducts();
-  }
+    const productInput = { ...input, user: user._id };
 
-  @Query(() => Product)
-  product(@Arg("input") input: GetProductInput) {
-    return this.productService.findSingleProduct(input);
+    try {
+      const createdProduct = await productService.createProduct(productInput);
+      console.log("Created product:", createdProduct);
+      return createdProduct;
+    } catch (error) {
+      console.error("Error creating product:", error);
+      throw new Error("Failed to create product");
+    }
   }
 }
